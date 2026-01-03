@@ -3,6 +3,12 @@
 # ============================================================================
 # Mini-Redis Startup Script
 # ============================================================================
+# Usage:
+#   ./start.sh --local    Run all services locally (default)
+#   ./start.sh --help     Show this help message
+#
+# For Railway deployment, each service is deployed separately via Docker.
+# ============================================================================
 
 set -e
 
@@ -18,9 +24,51 @@ CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Parse arguments
+show_help() {
+    echo "Usage: ./start.sh [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --local    Run all services locally (default)"
+    echo "  --help     Show this help message"
+    echo ""
+    echo "Environment variables (for server deployment):"
+    echo "  REDIS_HOST    Host for Redis engine (default: localhost)"
+    echo "  REDIS_PORT    Port for Redis engine (default: 6379)"
+    echo "  PORT          Port for HTTP API (default: 3001)"
+    exit 0
+}
+
+# Default to local mode
+MODE="local"
+
+for arg in "$@"; do
+    case $arg in
+        --local)
+            MODE="local"
+            shift
+            ;;
+        --help)
+            show_help
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $arg${NC}"
+            show_help
+            ;;
+    esac
+done
+
+# Set local environment variables
+if [ "$MODE" = "local" ]; then
+    export REDIS_HOST="localhost"
+    export REDIS_PORT="6379"
+    export PORT="3001"
+fi
+
 echo -e "${CYAN}"
 echo "╔═══════════════════════════════════════════════════════════════╗"
 echo "║                     Mini-Redis Startup                        ║"
+echo "║                       Mode: $MODE                              ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 

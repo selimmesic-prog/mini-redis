@@ -18,6 +18,7 @@ function Dashboard() {
     const addToast = (message, type = 'success') => {
         const id = Date.now();
         setToasts(prev => [...prev, { id, message, type }]);
+        setTimeout(() => removeToast(id), 2000);
     };
 
     const removeToast = (id) => {
@@ -356,7 +357,6 @@ function Dashboard() {
                         key={toast.id}
                         message={toast.message}
                         type={toast.type}
-                        onClose={() => removeToast(toast.id)}
                     />
                 ))}
             </div>
