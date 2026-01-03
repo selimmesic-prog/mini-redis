@@ -11,9 +11,8 @@ A custom in-memory key-value store written in C, with a Node.js middleware API a
 │   │   Frontend   │      │   Backend    │      │   C Engine   │              │
 │   │   (React)    │◄────►│  (Node.js)   │◄────►│ (TCP Server) │              │
 │   │              │ REST │              │ TCP  │              │              │
-│   │  Dashboard   │ API  │   Express    │ 6379 │  Hash Table  │              │
+│   │  Dashboard   │ API  │   Express    │      │  Hash Table  │              │
 │   └──────────────┘      └──────────────┘      └──────────────┘              │
-│       Port 8080            Port 3001            Port 6379                   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -24,7 +23,7 @@ A custom in-memory key-value store written in C, with a Node.js middleware API a
 - Custom hash table implementation with collision handling (chaining)
 - Dynamic resizing based on load factor
 - Memory tracking and statistics
-- TCP socket server
+- TCP socket server with IPv6 dual-stack support
 - Buffer overflow protection
 - Graceful signal handling
 
@@ -43,6 +42,7 @@ A custom in-memory key-value store written in C, with a Node.js middleware API a
 - REST API bridge to the C engine
 - CORS enabled
 - JSON request/response handling
+- Environment-based configuration
 - Raw command execution
 
 ### React Dashboard
@@ -59,68 +59,95 @@ mini-redis/
 ├── engine/                 # C Engine
 │   ├── mini_redis.h       # Header file
 │   ├── hash_table.c       # Hash table implementation
-│   ├── server.c           # TCP server & main
-│   └── Makefile           # Build configuration
+│   ├── server.c           # TCP server (IPv4/IPv6 dual-stack)
+│   ├── Makefile           # Build configuration
+│   └── Dockerfile         # Docker config for deployment
 ├── backend/               # Node.js Middleware
-│   ├── server.js          # Express API server
-│   └── package.json       # Node configuration
+│   ├── server.js          # HTTP server
+│   ├── config/            # Configuration (env vars)
+│   ├── client/            # Redis TCP client
+│   ├── controllers/       # Route handlers
+│   ├── middleware/        # CORS, logging
+│   ├── routes/            # API routes
+│   └── package.json       # Node dependencies
 ├── frontend/              # React Frontend
-│   └── dashboard.html     # Single-file React app
-├── start.sh               # Startup script
+│   ├── index.html         # Main dashboard
+│   ├── css/               # Styles
+│   └── js/                # React components & API
+├── mcp-server/            # Jira MCP integration
+├── start.sh               # Local startup script
 └── README.md              # This file
 ```
 
 ## Quick Start
 
-### 1. Build the C Engine
+### Option 1: Use the Startup Script
+
+```bash
+./start.sh --local
+```
+
+This builds and starts all three services automatically.
+
+### Option 2: Manual Setup
+
+#### 1. Build and Start the C Engine
 
 ```bash
 cd engine
 make clean && make
-```
-
-### 2. Start the C Engine
-
-```bash
 ./mini-redis 6379
 ```
 
-Output:
-```
-[2025-12-23 10:00:00] [INFO] ===========================================
-[2025-12-23 10:00:00] [INFO]   Mini-Redis - In-Memory Key-Value Store  
-[2025-12-23 10:00:00] [INFO] ===========================================
-[2025-12-23 10:00:00] [INFO] Hash table initialized with 64 buckets
-[2025-12-23 10:00:00] [INFO] Mini-Redis server started on port 6379
-[2025-12-23 10:00:00] [INFO] Listening for connections...
-```
-
-### 3. Start the Node.js Backend
+#### 2. Start the Node.js Backend
 
 ```bash
 cd backend
 node server.js
 ```
 
-Output:
-```
-===========================================
-  Mini-Redis API Server                   
-===========================================
-HTTP API listening on port 3001
-Redis connection: localhost:6379
-```
-
-### 4. Open the Dashboard
-
-Open `frontend/dashboard.html` in your browser, or serve it:
+#### 3. Serve the Frontend
 
 ```bash
 cd frontend
 python3 -m http.server 8080
 ```
 
-Then visit: http://localhost:8080/dashboard.html
+Then visit: http://localhost:8080
+
+## Deployment (Railway)
+
+The project is configured for [Railway](https://railway.app) deployment.
+
+### Setup
+
+1. Push your code to GitHub
+2. In Railway, create a new project from your GitHub repo
+3. Add 3 services from the same repo with different root directories:
+
+| Service | Root Directory | Type |
+|---------|----------------|------|
+| engine | `/engine` | Dockerfile |
+| backend | `/backend` | Node.js |
+| frontend | `/frontend` | Node.js (static) |
+
+4. Set backend environment variables:
+```
+REDIS_HOST=engine.railway.internal
+REDIS_PORT=8080
+```
+
+5. Generate public domains for frontend and backend services
+
+### Environment Variables
+
+The backend uses these environment variables (with defaults for local development):
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | HTTP server port | `3001` |
+| `REDIS_HOST` | Engine hostname | `localhost` |
+| `REDIS_PORT` | Engine port | `6379` |
 
 ## API Endpoints
 
@@ -193,6 +220,7 @@ echo "KEYS" | nc localhost 6379
 - Simple text-based protocol
 - Commands terminated by newline (`\n`)
 - Responses terminated by newline
+- IPv6 dual-stack support for cloud deployments
 - Single-threaded for MVP (handles one client at a time)
 
 ## Configuration
@@ -208,13 +236,12 @@ Edit `mini_redis.h`:
 ```
 
 ### Node.js Backend
-Edit `server.js`:
+Configuration via environment variables or `backend/config/index.js`:
 ```javascript
-const CONFIG = {
-    HTTP_PORT: 3001,
-    REDIS_HOST: 'localhost',
-    REDIS_PORT: 6379,
-    SOCKET_TIMEOUT: 5000
+module.exports = {
+    HTTP_PORT: process.env.PORT || 3001,
+    REDIS_HOST: process.env.REDIS_HOST || 'localhost',
+    REDIS_PORT: parseInt(process.env.REDIS_PORT, 10) || 6379,
 };
 ```
 
@@ -226,7 +253,8 @@ MIT License - Feel free to use for learning and portfolio projects.
 
 Built as a portfolio project demonstrating:
 - Low-level C programming
-- TCP socket networking
+- TCP socket networking (IPv4/IPv6)
 - Data structure implementation
 - Full-stack development
+- Cloud deployment
 - System design
