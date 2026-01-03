@@ -1,0 +1,14 @@
+{
+  "name": "mini-redis-frontend",
+  "version": "1.0.0",
+  "description": "React dashboard for Mini-Redis",
+  "scripts": {
+    "start": "npx serve -s . -l $PORT"
+  },
+  "dependencies": {
+    "serve": "^14.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
