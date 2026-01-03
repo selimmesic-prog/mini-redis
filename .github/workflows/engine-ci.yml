@@ -1,0 +1,78 @@
+name: C Engine CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'engine/**'
+      - '.github/workflows/engine-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'engine/**'
+      - '.github/workflows/engine-ci.yml'
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y gcc make netcat-openbsd
+
+      - name: Build engine
+        working-directory: engine
+        run: |
+          make clean
+          make
+
+      - name: Verify binary exists
+        working-directory: engine
+        run: |
+          test -f mini-redis
+          ./mini-redis --help || true
+
+      - name: Test TCP server
+        working-directory: engine
+        run: |
+          # Start server in background
+          ./mini-redis 6379 &
+          SERVER_PID=$!
+          sleep 2
+
+          # Test PING command
+          PING_RESULT=$(echo "PING" | nc -w 2 localhost 6379)
+          echo "PING response: $PING_RESULT"
+
+          # Test SET/GET commands
+          echo "SET testkey testvalue" | nc -w 2 localhost 6379
+          GET_RESULT=$(echo "GET testkey" | nc -w 2 localhost 6379)
+          echo "GET response: $GET_RESULT"
+
+          # Test STATS command
+          STATS_RESULT=$(echo "STATS" | nc -w 2 localhost 6379)
+          echo "STATS response: $STATS_RESULT"
+
+          # Cleanup
+          kill $SERVER_PID 2>/dev/null || true
+
+          # Verify results
+          if [ "$PING_RESULT" != "PONG" ]; then
+            echo "PING test failed"
+            exit 1
+          fi
+
+          if [ "$GET_RESULT" != "testvalue" ]; then
+            echo "GET test failed"
+            exit 1
+          fi
+
+          echo "All tests passed!"
