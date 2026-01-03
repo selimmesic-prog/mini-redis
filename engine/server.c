@@ -338,12 +338,12 @@ static void signal_handler(int sig) {
 // ============================================================================
 // Handle Client Connection
 // ============================================================================
-static void handle_client(int client_socket, struct sockaddr_in *client_addr) {
+static void handle_client(int client_socket, struct sockaddr_in6 *client_addr) {
     char buffer[BUFFER_SIZE];
-    char client_ip[INET_ADDRSTRLEN];
-    
-    inet_ntop(AF_INET, &client_addr->sin_addr, client_ip, INET_ADDRSTRLEN);
-    log_info("Client connected: %s:%d", client_ip, ntohs(client_addr->sin_port));
+    char client_ip[INET6_ADDRSTRLEN];
+
+    inet_ntop(AF_INET6, &client_addr->sin6_addr, client_ip, INET6_ADDRSTRLEN);
+    log_info("Client connected: %s:%d", client_ip, ntohs(client_addr->sin6_port));
     
     while (g_running) {
         // Clear buffer
@@ -359,7 +359,7 @@ static void handle_client(int client_socket, struct sockaddr_in *client_addr) {
         }
         
         if (bytes_read == 0) {
-            log_info("Client disconnected: %s:%d", client_ip, ntohs(client_addr->sin_port));
+            log_info("Client disconnected: %s:%d", client_ip, ntohs(client_addr->sin6_port));
             break;
         }
         
@@ -406,16 +406,16 @@ static void handle_client(int client_socket, struct sockaddr_in *client_addr) {
 // Start Server
 // ============================================================================
 int server_start(int port) {
-    struct sockaddr_in server_addr, client_addr;
+    struct sockaddr_in6 server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
-    
-    // Create socket
-    g_server_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    // Create IPv6 socket (supports both IPv4 and IPv6)
+    g_server_socket = socket(AF_INET6, SOCK_STREAM, 0);
     if (g_server_socket < 0) {
         log_error("Failed to create socket: %s", strerror(errno));
         return -1;
     }
-    
+
     // Set socket options (allow address reuse)
     int opt = 1;
     if (setsockopt(g_server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
@@ -423,13 +423,19 @@ int server_start(int port) {
         close(g_server_socket);
         return -1;
     }
-    
-    // Configure server address
+
+    // Allow both IPv4 and IPv6 connections (dual-stack)
+    int no = 0;
+    if (setsockopt(g_server_socket, IPPROTO_IPV6, IPV6_V6ONLY, &no, sizeof(no)) < 0) {
+        log_info("Note: Could not enable dual-stack mode, IPv6 only");
+    }
+
+    // Configure server address (IPv6)
     memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(port);
-    
+    server_addr.sin6_family = AF_INET6;
+    server_addr.sin6_addr = in6addr_any;
+    server_addr.sin6_port = htons(port);
+
     // Bind socket
     if (bind(g_server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         log_error("bind() failed: %s", strerror(errno));
