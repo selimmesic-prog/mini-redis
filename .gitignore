@@ -1,0 +1,17 @@
+# MCP credentials (each dev configures their own)
+.mcp.json
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+engine/mini-redis
+*.o
+*.dSYM/
+
+# Environment files
+.env
+.env.local
+
+# OS files
+.DS_Store
