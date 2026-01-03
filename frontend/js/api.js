@@ -1,4 +1,6 @@
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://localhost:3001/api'
+    : 'https://backend-production-856a.up.railway.app/api';
 
 const api = {
     async health() {
